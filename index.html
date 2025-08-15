@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teste de Envio de E-mail</title>
+  </head>
+  <body>
+    <h1>Envie um E-mail de Teste</h1>
+
+    <form id="contact-form">
+      <label for="nome">Nome:</label><br />
+      <input type="text" id="nome" name="nome" value="Lenin Developer" /><br />
+
+      <label for="email">E-mail:</label><br />
+      <input
+        type="email"
+        id="email"
+        name="email"
+        value="seu-email@gmail.com"
+      /><br />
+
+      <label for="mensagem">Mensagem:</label><br />
+      <textarea id="mensagem" name="mensagem">
+Esta é uma mensagem de teste do meu site Vercel para o meu backend Render!</textarea
+      ><br /><br />
+
+      <button type="submit">Enviar E-mail</button>
+    </form>
+
+    <p id="feedback-message"></p>
+
+    <script src="script.js"></script>
+  </body>
+</html>
