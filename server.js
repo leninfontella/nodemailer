@@ -2,8 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const nodemailer = require("nodemailer");
 const cors = require("cors");
-
 const app = express();
+
+const corsOptions = {
+  origin: "https://1lenin1dev.vercel.app/",
+};
+
+app.use(cors(corsOptions)); // Aplique a nova configuração
+
 app.use(cors());
 app.use(express.json());
 
