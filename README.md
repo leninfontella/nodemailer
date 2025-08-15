@@ -1,5 +1,7 @@
 # Nodemailer Backend
 
+Servidor rodando em: ==> Available at your primary URL https://nodemailer-backend-iweb.onrender.com
+
 Este projeto é um backend simples para envio de e-mails, utilizando o Nodemailer. Ele fornece uma API REST para que outros serviços possam solicitar o envio de e-mails de forma fácil e segura.
 
 ## 🚀 Funcionalidades
