@@ -16,21 +16,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // URL do seu backend no Render.
     // Certifique-se de que a URL está correta e completa.
-    const url = "https://nodemailer-backend-iweb.onrender.com/enviar-email";
 
     try {
       // Faz a requisição POST para o backend
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          nome,
-          email,
-          mensagem,
-        }),
-      });
+      const response = await fetch(
+        "https://nodemailer-backend-iweb.onrender.com/enviar-email",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            nome,
+            email,
+            mensagem,
+          }),
+        }
+      );
 
       // Converte a resposta para JSON
       const data = await response.json();
