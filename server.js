@@ -2,15 +2,15 @@ require("dotenv").config();
 const express = require("express");
 const nodemailer = require("nodemailer");
 const cors = require("cors");
+
 const app = express();
 
+// Configuração do CORS para permitir apenas o seu site no Vercel.
 const corsOptions = {
-  origin: "https://1lenin1dev.vercel.app/",
+  origin: "https://1lenin1dev.vercel.app", // Removi a barra no final
 };
 
-app.use(cors(corsOptions)); // Aplique a nova configuração
-
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.post("/enviar-email", async (req, res) => {
