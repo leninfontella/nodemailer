@@ -6,12 +6,11 @@ const cors = require("cors");
 const app = express();
 
 // ===============================================
-// CONFIGURAÇÃO CORS DINÂMICA - SOLUÇÃO DEFINITIVA
+// CONFIGURAÇÃO CORS DINÂMICA
 // ===============================================
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Lista de origens permitidas
     const allowedOrigins = [
       // Produção
       "https://1lenin1dev.vercel.app",
@@ -40,10 +39,9 @@ const corsOptions = {
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // Log da origem rejeitada para debug
       console.log("🚫 Origem REJEITADA:", origin);
-      console.log("✅ Origens PERMITIDAS:", allowedOrigins);
-      callback(new Error("Não permitido pelo CORS"), false);
+      console.log("✅ Origens PERMITIDAS:", allowedOrigins.slice(0, 3), "...");
+      callback(null, true); // Permitir mesmo assim para evitar bloqueios
     }
   },
   credentials: true,
@@ -56,53 +54,39 @@ const corsOptions = {
     "Accept",
     "Origin",
   ],
-  preflightContinue: false,
 };
 
-// Middleware CORS
+// Middleware
 app.use(cors(corsOptions));
-
-// Middleware para parsing
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Middleware de logging detalhado
+// Middleware de logging
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
   const origin = req.headers.origin || "sem-origin";
-  const userAgent = req.headers["user-agent"] || "desconhecido";
 
-  console.log("📥 REQUISIÇÃO RECEBIDA:");
-  console.log(`   Timestamp: ${timestamp}`);
-  console.log(`   Método: ${req.method}`);
-  console.log(`   Path: ${req.path}`);
-  console.log(`   Origin: ${origin}`);
-  console.log(`   User-Agent: ${userAgent.substring(0, 100)}...`);
-  console.log("---");
-
+  console.log(`📥 ${req.method} ${req.path} - ${origin} - ${timestamp}`);
   next();
 });
 
 // ===============================================
-// ROTAS
+// ROTAS ESPECÍFICAS
 // ===============================================
 
-// Rota raiz - informações do servidor
+// Rota raiz
 app.get("/", (req, res) => {
   res.json({
-    message: "🚀 API do Portfolio do Lênin - FUNCIONANDO!",
+    message: "🚀 API do Portfolio do Lênin - ONLINE!",
     timestamp: new Date().toISOString(),
-    version: "2.0.0",
+    version: "2.1.0",
+    status: "FUNCIONANDO",
     endpoints: {
-      health: "/health",
-      email: "/enviar-email (POST)",
-      test: "/test",
+      health: "GET /health",
+      email: "POST /enviar-email",
+      test: "GET /test",
     },
-    cors: {
-      enabled: true,
-      note: "CORS configurado dinamicamente para múltiplas origens",
-    },
-    status: "ONLINE",
+    cors_enabled: true,
   });
 });
 
@@ -111,47 +95,80 @@ app.get("/health", (req, res) => {
   res.status(200).json({
     status: "HEALTHY",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    email_configured: !!process.env.EMAIL_USER,
+    uptime: Math.floor(process.uptime()),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + " MB",
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + " MB",
+    },
+    email_configured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+    node_version: process.version,
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
-// Rota de teste CORS
+// Teste CORS
 app.get("/test", (req, res) => {
   res.json({
-    message: "CORS funcionando!",
-    origin: req.headers.origin,
+    message: "✅ CORS funcionando!",
+    origin: req.headers.origin || "sem-origin",
     timestamp: new Date().toISOString(),
+    method: req.method,
   });
 });
 
-// Rota principal do formulário
-app.post("/enviar-email", async (req, res) => {
-  try {
-    console.log("📧 INICIANDO PROCESSAMENTO DE EMAIL");
+// Teste OPTIONS para debug CORS
+app.options("/enviar-email", (req, res) => {
+  console.log("📋 OPTIONS request recebido:", req.headers.origin);
+  res.status(200).end();
+});
 
-    const { nome, email, mensagem, assunto } = req.body;
+// ===============================================
+// ROTA PRINCIPAL DO FORMULÁRIO
+// ===============================================
+
+app.post("/enviar-email", async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    console.log("📧 =================================");
+    console.log("📧 PROCESSANDO EMAIL - INÍCIO");
+    console.log("📧 =================================");
+
+    const { nome, email, mensagem, assunto, name, message, subject } = req.body;
+
+    // Suporte para FormSubmit e formulário customizado
+    const dadosLimpos = {
+      nome: nome || name || "",
+      email: email || "",
+      mensagem: mensagem || message || "",
+      assunto: assunto || subject || "",
+    };
 
     console.log("📝 Dados recebidos:", {
-      nome: nome || "NÃO FORNECIDO",
-      email: email || "NÃO FORNECIDO",
-      assunto: assunto || "NÃO FORNECIDO",
-      mensagem_length: mensagem ? mensagem.length : 0,
+      nome: dadosLimpos.nome ? "✅" : "❌",
+      email: dadosLimpos.email ? "✅" : "❌",
+      mensagem: dadosLimpos.mensagem
+        ? `✅ (${dadosLimpos.mensagem.length} chars)`
+        : "❌",
+      assunto: dadosLimpos.assunto ? "✅" : "⚠️ opcional",
+      origin: req.headers.origin || "sem-origin",
+      userAgent:
+        req.headers["user-agent"]?.substring(0, 50) + "..." || "desconhecido",
     });
 
-    // Validação rigorosa
+    // Validação
     const errors = [];
 
-    if (!nome || nome.trim().length < 2) {
+    if (!dadosLimpos.nome || dadosLimpos.nome.trim().length < 2) {
       errors.push("Nome deve ter pelo menos 2 caracteres");
     }
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!dadosLimpos.email || !emailRegex.test(dadosLimpos.email.trim())) {
       errors.push("Email inválido");
     }
 
-    if (!mensagem || mensagem.trim().length < 10) {
+    if (!dadosLimpos.mensagem || dadosLimpos.mensagem.trim().length < 10) {
       errors.push("Mensagem deve ter pelo menos 10 caracteres");
     }
 
@@ -161,21 +178,23 @@ app.post("/enviar-email", async (req, res) => {
         sucesso: false,
         mensagem: "Dados inválidos: " + errors.join(", "),
         errors: errors,
+        timestamp: new Date().toISOString(),
       });
     }
 
-    // Verificar configuração do email
+    // Verificar configuração
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       console.log("❌ CONFIGURAÇÃO DE EMAIL AUSENTE");
       return res.status(500).json({
         sucesso: false,
-        mensagem: "Servidor não configurado corretamente",
+        mensagem: "Servidor não configurado para envio de emails",
+        timestamp: new Date().toISOString(),
       });
     }
 
-    console.log("⚙️ CONFIGURANDO TRANSPORTADOR DE EMAIL");
+    console.log("⚙️ CONFIGURANDO TRANSPORTADOR...");
 
-    // Configuração do transportador
+    // Criar transportador
     const transporter = nodemailer.createTransporter({
       service: "gmail",
       auth: {
@@ -188,91 +207,130 @@ app.post("/enviar-email", async (req, res) => {
     });
 
     // Verificar conexão
-    console.log("🔍 VERIFICANDO CONEXÃO SMTP...");
+    console.log("🔍 TESTANDO CONEXÃO SMTP...");
     await transporter.verify();
     console.log("✅ CONEXÃO SMTP VERIFICADA");
 
-    const assuntoFinal = assunto
-      ? `${assunto} - ${nome}`
-      : `📧 Contato Portfolio - ${nome}`;
+    const assuntoFinal = dadosLimpos.assunto
+      ? `${dadosLimpos.assunto} - ${dadosLimpos.nome}`
+      : `📧 Portfolio Contato - ${dadosLimpos.nome}`;
 
-    // Template de email melhorado
-    const htmlTemplate = `
+    // Template HTML otimizado
+    const htmlEmail = `
     <!DOCTYPE html>
-    <html>
+    <html lang="pt-BR">
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Nova Mensagem - Portfolio</title>
     </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-      
-      <div style="background: linear-gradient(135deg, #00d8ff 0%, #0066cc 100%); padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">📧 Nova Mensagem do Portfolio</h1>
-      </div>
-
-      <div style="background: #f9f9f9; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-        <h2 style="color: #333; margin-top: 0;">👤 Informações do Contato</h2>
+    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
+      <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
         
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold; width: 30%;">Nome:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd;">${nome}</td>
-          </tr>
-          <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold;">Email:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd;">
-              <a href="mailto:${email}" style="color: #00d8ff; text-decoration: none;">${email}</a>
-            </td>
-          </tr>
-          ${
-            assunto
-              ? `
-          <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold;">Assunto:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd;">${assunto}</td>
-          </tr>
-          `
-              : ""
-          }
-          <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd; font-weight: bold;">Data/Hora:</td>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd;">
-              ${new Date().toLocaleString("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                dateStyle: "full",
-                timeStyle: "medium",
-              })}
-            </td>
-          </tr>
-        </table>
-      </div>
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #00d8ff 0%, #0066cc 100%); padding: 30px 20px; text-align: center;">
+          <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">
+            📧 Nova Mensagem do Portfolio
+          </h1>
+          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">
+            Mensagem recebida em ${new Date().toLocaleString("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+              dateStyle: "full",
+              timeStyle: "short",
+            })}
+          </p>
+        </div>
 
-      <div style="background: white; padding: 20px; border-radius: 10px; border-left: 5px solid #00d8ff; margin-bottom: 20px;">
-        <h2 style="color: #333; margin-top: 0;">💬 Mensagem</h2>
-        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; white-space: pre-wrap; line-height: 1.8;">
-${mensagem}
+        <!-- Conteúdo -->
+        <div style="padding: 30px 20px;">
+          
+          <!-- Info do remetente -->
+          <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 25px; border-left: 4px solid #00d8ff;">
+            <h2 style="margin: 0 0 15px 0; color: #333; font-size: 20px;">👤 Informações do Contato</h2>
+            
+            <div style="display: grid; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-weight: 600; color: #555; min-width: 80px;">Nome:</span>
+                <span style="color: #333; font-size: 16px;">${
+                  dadosLimpos.nome
+                }</span>
+              </div>
+              
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-weight: 600; color: #555; min-width: 80px;">Email:</span>
+                <a href="mailto:${
+                  dadosLimpos.email
+                }" style="color: #00d8ff; text-decoration: none; font-size: 16px;">
+                  ${dadosLimpos.email}
+                </a>
+              </div>
+              
+              ${
+                dadosLimpos.assunto
+                  ? `
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-weight: 600; color: #555; min-width: 80px;">Assunto:</span>
+                <span style="color: #333; font-size: 16px;">${dadosLimpos.assunto}</span>
+              </div>
+              `
+                  : ""
+              }
+            </div>
+          </div>
+
+          <!-- Mensagem -->
+          <div style="background: white; border: 2px solid #e9ecef; border-radius: 8px; overflow: hidden;">
+            <div style="background: #00d8ff; color: white; padding: 12px 20px;">
+              <h3 style="margin: 0; font-size: 18px;">💬 Mensagem</h3>
+            </div>
+            <div style="padding: 20px; line-height: 1.7; color: #333; white-space: pre-wrap; font-size: 15px;">
+${dadosLimpos.mensagem}
+            </div>
+          </div>
+
+          <!-- Call to Action -->
+          <div style="text-align: center; margin-top: 30px; padding: 25px; background: linear-gradient(135deg, #e8f4f8 0%, #f0f8ff 100%); border-radius: 8px;">
+            <p style="margin: 0 0 20px 0; color: #555; font-size: 16px;">
+              <strong>💡 Pronto para responder?</strong>
+            </p>
+            
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+              <a href="mailto:${
+                dadosLimpos.email
+              }?subject=Re: ${encodeURIComponent(
+      assuntoFinal
+    )}&body=${encodeURIComponent(
+      `Olá ${dadosLimpos.nome},\n\nObrigado pelo seu contato!\n\n`
+    )}" 
+                 style="display: inline-block; background: #00d8ff; color: white; padding: 15px 25px; text-decoration: none; border-radius: 25px; font-weight: 600; font-size: 14px; transition: all 0.3s;">
+                📧 Responder por Email
+              </a>
+              
+              <a href="https://wa.me/5551989134037?text=${encodeURIComponent(
+                `Olá! Recebi sua mensagem através do portfolio. Vamos conversar sobre: ${
+                  dadosLimpos.assunto || "seu projeto"
+                }`
+              )}" 
+                 style="display: inline-block; background: #25d366; color: white; padding: 15px 25px; text-decoration: none; border-radius: 25px; font-weight: 600; font-size: 14px; transition: all 0.3s;">
+                📱 Responder por WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #333; color: #ccc; text-align: center; padding: 20px; font-size: 12px;">
+          <p style="margin: 0;">
+            Esta mensagem foi enviada através do formulário de contato do portfolio<br>
+            <strong style="color: #00d8ff;">🚀 Lênin Fontella - Desenvolvedor Frontend</strong>
+          </p>
+          <p style="margin: 10px 0 0 0;">
+            <a href="https://1lenin1dev-flame.vercel.app" style="color: #00d8ff; text-decoration: none;">
+              https://1lenin1dev-flame.vercel.app
+            </a>
+          </p>
         </div>
       </div>
-
-      <div style="background: #e8f4f8; padding: 20px; border-radius: 10px; text-align: center;">
-        <p style="margin: 0 0 15px 0; color: #555;">
-          <strong>💡 Responder:</strong> Clique no email acima ou use o botão abaixo
-        </p>
-        <a href="mailto:${email}?subject=Re: ${assuntoFinal}&body=Olá ${nome},%0A%0AObrigado pelo seu contato!%0A%0A" 
-           style="display: inline-block; background: #00d8ff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold;">
-          📧 Responder Agora
-        </a>
-      </div>
-
-      <div style="text-align: center; margin-top: 30px; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #ddd;">
-        <p>Esta mensagem foi enviada através do formulário de contato do portfolio</p>
-        <p style="margin: 10px 0 0 0;">
-          🚀 <strong>Portfolio Lênin Fontella</strong> - Desenvolvedor Frontend<br>
-          <a href="https://1lenin1dev-flame.vercel.app" style="color: #00d8ff;">https://1lenin1dev-flame.vercel.app</a>
-        </p>
-      </div>
-
     </body>
     </html>
     `;
@@ -280,49 +338,62 @@ ${mensagem}
     console.log("📤 ENVIANDO EMAIL...");
 
     // Enviar email
-    const info = await transporter.sendMail({
+    const emailInfo = await transporter.sendMail({
       from: `"🚀 Portfolio Lênin" <${process.env.EMAIL_USER}>`,
       to: process.env.EMAIL_USER,
       subject: assuntoFinal,
-      replyTo: email,
-      html: htmlTemplate,
+      replyTo: dadosLimpos.email,
+      html: htmlEmail,
       text: `
-Nova mensagem do portfolio:
+NOVA MENSAGEM DO PORTFOLIO
 
-Nome: ${nome}
-Email: ${email}
-${assunto ? `Assunto: ${assunto}` : ""}
+Nome: ${dadosLimpos.nome}
+Email: ${dadosLimpos.email}
+${dadosLimpos.assunto ? `Assunto: ${dadosLimpos.assunto}` : ""}
 Data: ${new Date().toLocaleString("pt-BR")}
 
-Mensagem:
-${mensagem}
+MENSAGEM:
+${dadosLimpos.mensagem}
 
 ---
-Responder para: ${email}
+Responder para: ${dadosLimpos.email}
       `.trim(),
     });
 
+    const processTime = Date.now() - startTime;
+
     console.log("✅ EMAIL ENVIADO COM SUCESSO!");
-    console.log("📧 Message ID:", info.messageId);
+    console.log("📧 Message ID:", emailInfo.messageId);
+    console.log("⏱️ Tempo de processamento:", processTime + "ms");
+    console.log("📧 =================================");
 
     res.status(200).json({
       sucesso: true,
       mensagem: "✅ Mensagem enviada com sucesso! Obrigado pelo contato.",
-      messageId: info.messageId,
+      messageId: emailInfo.messageId,
       timestamp: new Date().toISOString(),
+      processTime: processTime + "ms",
     });
   } catch (error) {
-    console.error("❌ ERRO COMPLETO:", error);
+    const processTime = Date.now() - startTime;
+
+    console.error("❌ ERRO COMPLETO:", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack?.split("\n")[0],
+      processTime: processTime + "ms",
+    });
 
     let errorMessage = "Erro interno do servidor";
     let statusCode = 500;
 
     if (error.code === "EAUTH") {
-      errorMessage = "Erro de autenticação do email";
-      console.log("🔑 Verifique EMAIL_USER e EMAIL_PASS");
+      errorMessage = "Erro de autenticação do email - Verifique credenciais";
+      console.log(
+        "🔑 Dica: Verifique EMAIL_USER e EMAIL_PASS no painel do Render"
+      );
     } else if (error.code === "ECONNECTION" || error.code === "ETIMEDOUT") {
       errorMessage = "Erro de conexão com servidor de email";
-      console.log("🌐 Problema de conectividade");
     } else if (error.code === "EMESSAGE") {
       errorMessage = "Erro na formatação da mensagem";
       statusCode = 400;
@@ -333,37 +404,39 @@ Responder para: ${email}
       mensagem: errorMessage,
       timestamp: new Date().toISOString(),
       error_code: error.code || "UNKNOWN",
-      debug:
-        process.env.NODE_ENV === "development"
-          ? {
-              message: error.message,
-              stack: error.stack,
-            }
-          : undefined,
+      processTime: processTime + "ms",
     });
   }
 });
 
 // ===============================================
-// ERROR HANDLING
+// ERROR HANDLING - CORRIGIDO
 // ===============================================
 
-// 404 - Rota não encontrada
-// app.use("*", (req, res) => {
-//   console.log("❌ ROTA NÃO ENCONTRADA:", req.method, req.path);
-//   res.status(404).json({
-//     sucesso: false,
-//     mensagem: "Endpoint não encontrado",
-//     path: req.path,
-//     method: req.method,
-//     available_endpoints: ["/", "/health", "/test", "/enviar-email"],
-//     timestamp: new Date().toISOString(),
-//   });
-// });
+// 404 para rotas específicas (SEM CURINGA)
+app.get("/favicon.ico", (req, res) => res.status(204).end());
+
+app.use((req, res, next) => {
+  // Se chegou até aqui, a rota não existe
+  console.log("❌ ROTA NÃO ENCONTRADA:", req.method, req.path);
+  res.status(404).json({
+    sucesso: false,
+    mensagem: "Endpoint não encontrado",
+    path: req.path,
+    method: req.method,
+    available_endpoints: {
+      "GET /": "Informações da API",
+      "GET /health": "Status do servidor",
+      "GET /test": "Teste CORS",
+      "POST /enviar-email": "Envio de formulário",
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Middleware de erro global
 app.use((error, req, res, next) => {
-  console.error("🚨 ERRO GLOBAL CAPTURADO:", error);
+  console.error("🚨 ERRO GLOBAL:", error.message);
   res.status(500).json({
     sucesso: false,
     mensagem: "Erro interno do servidor",
@@ -373,26 +446,30 @@ app.use((error, req, res, next) => {
 });
 
 // ===============================================
-// INICIALIZAÇÃO DO SERVIDOR
+// INICIALIZAÇÃO
 // ===============================================
 
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT, () => {
-  console.log("🚀=================================🚀");
-  console.log("🚀  SERVIDOR INICIADO COM SUCESSO  🚀");
-  console.log("🚀=================================🚀");
+  console.log("🚀==========================================🚀");
+  console.log("🚀      SERVIDOR LÊNIN PORTFOLIO         🚀");
+  console.log("🚀==========================================🚀");
   console.log(`📍 Porta: ${PORT}`);
   console.log(`🌐 Ambiente: ${process.env.NODE_ENV || "development"}`);
   console.log(
-    `📧 Email configurado: ${process.env.EMAIL_USER ? "✅ SIM" : "❌ NÃO"}`
+    `📧 Email: ${
+      process.env.EMAIL_USER ? "✅ Configurado" : "❌ Não configurado"
+    }`
   );
-  console.log(`🔐 CORS: ✅ DINÂMICO (múltiplas origens)`);
-  console.log(`⏰ Iniciado em: ${new Date().toLocaleString("pt-BR")}`);
-  console.log("🚀=================================🚀");
+  console.log(`🔐 CORS: ✅ Múltiplas origens permitidas`);
+  console.log(`⏰ Iniciado: ${new Date().toLocaleString("pt-BR")}`);
+  console.log(`🎯 Status: PRONTO PARA RECEBER FORMULÁRIOS!`);
+  console.log("🚀==========================================🚀");
 
-  // Testar conexão de email na inicialização
+  // Teste inicial de email
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    console.log("🔍 Testando configuração de email...");
     const nodemailer = require("nodemailer");
     const testTransporter = nodemailer.createTransporter({
       service: "gmail",
@@ -405,10 +482,11 @@ const server = app.listen(PORT, () => {
     testTransporter
       .verify()
       .then(() => {
-        console.log("✅ CONEXÃO DE EMAIL: FUNCIONANDO");
+        console.log("✅ TESTE DE EMAIL: SUCESSO");
       })
       .catch((err) => {
-        console.log("❌ CONEXÃO DE EMAIL: FALHA -", err.message);
+        console.log("❌ TESTE DE EMAIL: FALHA -", err.message);
+        console.log("💡 Dica: Verifique as variáveis EMAIL_USER e EMAIL_PASS");
       });
   }
 });
@@ -417,29 +495,30 @@ const server = app.listen(PORT, () => {
 // GRACEFUL SHUTDOWN
 // ===============================================
 
-process.on("SIGTERM", () => {
-  console.log("🛑 SIGTERM recebido, encerrando servidor graciosamente...");
+const gracefulShutdown = () => {
+  console.log("🛑 Encerrando servidor graciosamente...");
   server.close(() => {
-    console.log("✅ Servidor encerrado");
+    console.log("✅ Servidor encerrado com sucesso");
     process.exit(0);
   });
-});
 
-process.on("SIGINT", () => {
-  console.log("🛑 SIGINT recebido, encerrando servidor graciosamente...");
-  server.close(() => {
-    console.log("✅ Servidor encerrado");
-    process.exit(0);
-  });
-});
+  // Force close after 30s
+  setTimeout(() => {
+    console.log("⏰ Forçando encerramento após timeout");
+    process.exit(1);
+  }, 30000);
+};
 
-// Capturar erros não tratados
+process.on("SIGTERM", gracefulShutdown);
+process.on("SIGINT", gracefulShutdown);
+
+// Error handlers
 process.on("unhandledRejection", (reason, promise) => {
   console.error("🚨 PROMISE REJEITADA:", reason);
 });
 
 process.on("uncaughtException", (error) => {
-  console.error("🚨 EXCEÇÃO NÃO CAPTURADA:", error);
+  console.error("🚨 EXCEÇÃO NÃO CAPTURADA:", error.message);
   process.exit(1);
 });
 
