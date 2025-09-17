@@ -349,17 +349,17 @@ Responder para: ${email}
 // ===============================================
 
 // 404 - Rota não encontrada
-app.use("*", (req, res) => {
-  console.log("❌ ROTA NÃO ENCONTRADA:", req.method, req.path);
-  res.status(404).json({
-    sucesso: false,
-    mensagem: "Endpoint não encontrado",
-    path: req.path,
-    method: req.method,
-    available_endpoints: ["/", "/health", "/test", "/enviar-email"],
-    timestamp: new Date().toISOString(),
-  });
-});
+// app.use("*", (req, res) => {
+//   console.log("❌ ROTA NÃO ENCONTRADA:", req.method, req.path);
+//   res.status(404).json({
+//     sucesso: false,
+//     mensagem: "Endpoint não encontrado",
+//     path: req.path,
+//     method: req.method,
+//     available_endpoints: ["/", "/health", "/test", "/enviar-email"],
+//     timestamp: new Date().toISOString(),
+//   });
+// });
 
 // Middleware de erro global
 app.use((error, req, res, next) => {
