@@ -195,7 +195,7 @@ app.post("/enviar-email", async (req, res) => {
     console.log("⚙️ CONFIGURANDO TRANSPORTADOR...");
 
     // Criar transportador
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
@@ -471,7 +471,7 @@ const server = app.listen(PORT, () => {
   if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     console.log("🔍 Testando configuração de email...");
     const nodemailer = require("nodemailer");
-    const testTransporter = nodemailer.createTransporter({
+    const testTransporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
         user: process.env.EMAIL_USER,
